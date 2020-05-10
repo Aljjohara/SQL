@@ -1,0 +1,98 @@
+- How can you isolate (or group) the transactions of each cardholder?
+
+we can do inner join with credit_card table on t.card=c.card:
+
+Example: count number of transactions for each card holder
+
+SELECT id_card_holder, COUNT(*)
+FROM transaction AS t
+INNER JOIN credit_card AS c ON  t.card=c.card
+GROUP BY c.id_card_holder
+
+Example: sum all amounts for each card holder
+
+SELECT id_card_holder, sum(amount)
+FROM transaction AS t
+INNER JOIN credit_card AS c ON  t.card=c.card
+GROUP BY c.id_card_holder
+
+
+
+SELECT *
+FROM transaction AS t
+INNER JOIN merchant_category AS mc ON  t.id_merchant=mc.id
+WHERE EXTRACT(HOUR FROM t.date) BETWEEN 7 AND 9
+
+===========
+Consider the time period 7:00 a.m. to 9:00 a.m.
+
+What are the 100 highest transactions during this time period?
+
+Do you see any fraudulent or anomalous transactions?
+
+If you answered yes to the previous question, explain why you think there might be fraudulent transactions during this time frame.
+
+
+SELECT t.*, mcf.* FROM (
+SELECT mr.*, mc.name FROM
+merchant as mr
+INNER JOIN merchant_category as mc ON mc.id=mr.id_merchant_category
+) AS mcf
+INNER JOIN transaction as t on t.id_merchant=mcf.id
+WHERE EXTRACT(HOUR FROM t.date) BETWEEN 7 AND 9
+ORDER BY t.amount DESC
+LIMIT 100
+
+
+the query returns top 100 transactions between 7 and 9 am with the merchant type. Some merchant types such as bar and pub suggest that they are anomalous transactions. In addition, hight amounts might confirm that these transaction are fraudulent. For instance, transaction id 3163 happend at 7:22 at a bar with an amount of 1894.
+
+===========
+Some fraudsters hack a credit card by making several small payments (generally less than $2.00), which are typically ignored by cardholders. Count the transactions that are less than $2.00 per cardholder. Is there any evidence to suggest that a credit card has been hacked? Explain your rationale.
+
+SELECT id_card_holder, COUNT(amount)
+FROM transaction AS t
+INNER JOIN credit_card AS c ON  t.card=c.card
+WHERE amount <= 2
+GROUP BY c.id_card_holder
+
+
+Yes, card holder 12 has a lot of transactions with less than $2.00.
+
+===========
+What are the top five merchants prone to being hacked using small transactions?
+
+(SELECT id_merchant
+FROM transaction AS t
+INNER JOIN merchant AS m ON  t.id_merchant=m.id
+WHERE amount <= 2
+GROUP BY t.id_merchant
+ORDER BY COUNT(*) DESC
+LIMIT 5)
+
+Baker Inc, Greene-Wood, Greene-Wood, Hood-Phillips, Clark and Sons
+
+============
+Once you have a query that can be reused, create a view for each of the previous queries.
+
+CREATE VIEW frad_merchant as (
+SELECT * FROM merchant WHERE merchant.id in
+(SELECT id_merchant
+FROM transaction AS t
+INNER JOIN merchant AS m ON  t.id_merchant=m.id
+WHERE amount <= 2
+GROUP BY t.id_merchant
+ORDER BY COUNT(*) DESC
+LIMIT 5)
+)
+
+================
+
+CREATE VIEW small_amount AS(
+SELECT id_card_holder, COUNT(amount)
+FROM transaction AS t
+INNER JOIN credit_card AS c ON  t.card=c.card
+WHERE amount <= 2
+GROUP BY c.id_card_holder
+)
+
+==========
